@@ -14,10 +14,10 @@ library(dplyr)
 ```
 
 ```{r}
-file_paths1 <- fs::dir_ls("C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/MuskTweets17-19")
+file_paths1 <- fs::dir_ls("C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/MuskTweets17-20")
 file_contents1 <- list()
 
-file_paths2 <- fs::dir_ls("C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/MuskTweets20-21")
+file_paths2 <- fs::dir_ls("C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/MuskTweets21-22")
 file_contents2 <- list()
 ```
 
@@ -87,14 +87,36 @@ setdiff(df1719, df2021)
 ```
 
 ```{r}
-class(df1719$created_at)
-class(df2021$created_at)
-
-df1719$created_at <- as.character(df1719$created_at)
+# class(df1719$created_at)
+# class(df2021$created_at)
+# 
+# df1719$created_at <- as.character(df1719$created_at)
 ```
 ```{r}
 df1721 <- rbind(df1719, df2021)
 
-write.csv(df1721, "C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/df1721.csv", row.names = FALSE)
+write.csv(df1721, "C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/df_altered.csv", row.names = FALSE)
+```
+
+```{r}
+dfaltered <- read.csv("C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/df_altered.csv")
+```
+
+```{r}
+dfaltered$day <- as.Date(dfaltered$date)
+dfaltered$year <- year(dfaltered$day)
+dfaltered %>% count(year)
+
+dfnew <- dfaltered %>% distinct(tweet, .keep_all = TRUE)
+df_tweets <- dfnew %>% 
+           filter(date >= ymd("2017-01-1") & 
+           date < ymd("2022-04-21")) %>%
+  #filter(!retweet) %>%
+  arrange(date)
+
+
+```
+```{r}
+write.csv(df_tweets, "C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/df_tweets.csv", row.names = FALSE)
 ```
 
