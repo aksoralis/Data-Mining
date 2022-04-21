@@ -1,0 +1,36 @@
+---
+title: "Final_Project_Draft"
+author: "Jake Peters"
+date: "4/20/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(tidytext)
+library(textdata)
+library(broom)
+library(dslabs)
+```
+
+```{r}
+df_tweets <- read_csv("https://raw.githubusercontent.com/aksoralis/Data-Mining/main/df_tweets.csv")
+stocks <- read_csv("https://raw.githubusercontent.com/aksoralis/Data-Mining/main/stocksdf.csv")
+tweets <- df_tweets %>% select(tweet, link, replies_count, likes_count, retweets_count, day)
+
+tweets <- tweets %>% rename(Date = day)
+clean <- left_join(tweets,stocks, by= "Date")
+
+clean <- clean %>% 
+           filter(Date >= ymd("2017-11-10"))
+```
+
+
+```{r}
+clean %>% count(year)
+
+```
+
