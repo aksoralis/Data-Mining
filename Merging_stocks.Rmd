@@ -1,0 +1,43 @@
+---
+title: "Merging_stocks"
+author: "Uyanga Naranbaatar"
+date: "4/20/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+install.packages("DataCombine")
+library(tidyverse)
+library(DataCombine)
+```
+
+```{r}
+doge <- read.csv("https://raw.githubusercontent.com/aksoralis/Data-Mining/main/DOGE-USD-17-21.csv")
+doge$Date = as.Date(doge$Date)
+doge$dogeDiff <- doge$Close-doge$Open
+doge$dogeDiff.p <- (doge$Close-doge$Open)/doge$Open
+doge <- PercChange(data=doge, Var="Volume", NewVar="dogeVolDiff.p", slideBy=-1, type="proportion")
+doge$dogeVol <- doge$Volume
+doge_select <- doge %>% select(c(Date, dogeVol, dogeDiff, dogeDiff.p,dogeVolDiff.p))
+doge_select
+```
+
+```{r}
+tesla <- read.csv("https://raw.githubusercontent.com/aksoralis/Data-Mining/main/TSLA-17-21.csv")
+tesla$Date = as.Date(tesla$Date)
+tesla$teslaDiff <- tesla$Close-tesla$Open
+tesla$teslaDiff.p <- (tesla$Close-tesla$Open)/tesla$Open
+tesla <- PercChange(data=tesla, Var="Volume", NewVar="teslaVolDiff.p", slideBy=-1, type="proportion")
+tesla$teslaVol <- tesla$Volume
+tesla
+tesla_select <- tesla %>% select(c(Date, teslaVol, teslaDiff, teslaDiff.p,teslaVolDiff.p))
+tesla_select
+```
+
+```{r}
+stocks_select <- left_join(doge_select, tesla_select, by="Date")
+stocksdf <- stocks_select[-1,]
+stocksdf
+write.csv(stocksdf,"/Users/uyanganaranbaatar/Documents/A DATA318/stocksdf", row.names = FALSE)
+```
+
