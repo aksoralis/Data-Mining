@@ -87,7 +87,7 @@ scored_tesla_and_sentiments <- left_join(scored, sentiment_sum, by = "link")
 ```
 
 ```{r}
-write.csv(scored, "C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/scored_tesla_and_sentiments.csv", row.names = FALSE)
+write.csv(scored_tesla_and_sentiments, "C:/Users/13204/Documents/Data Mining/Final_Project/DATA318 Final Project/scored_tesla_and_sentiments.csv", row.names = FALSE)
 
 ```
 
