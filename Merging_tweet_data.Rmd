@@ -61,7 +61,7 @@ df2021 <- df2021 %>% rename(date = datetime)
 df1719 <- df1719 %>% mutate(date = as.POSIXct(date,format="%Y-%m-%d%H:%M:%S", tz = "GMT"))
 df1719 <- df1719 %>% mutate(date = format(date, tz="America/New_York"))
 
-df2021 <- df2021 %>% mutate(date = as.POSIXct(date,format="%Y-%m-%d%H:%M:%S", tz = "Asia/Qatar"))
+df2021 <- df2021 %>% mutate(date = as.POSIXct(date,format="%Y-%m-%d%H:%M:%S", tz = "Asia/Dubai"))
 df2021 <- df2021 %>% mutate(date = format(date, tz="America/New_York"))
 
 ```
