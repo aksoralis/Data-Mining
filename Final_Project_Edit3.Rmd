@@ -1,0 +1,234 @@
+---
+title: "Final_Project_Draft"
+author: "Jake Peters & Soka"
+date: "4/20/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(caret)
+library(ISLR2)
+library(lubridate)
+library(scales)
+library(tidytext)
+library(textdata)
+library(broom)
+library(dslabs)
+library(stringi)
+library(MASS) #needed for LDA/QDA
+library(leaps) # Needed for Subset Selection
+library(ROCR)
+library(pROC)
+library(glmnet) # Needed for Ridge and Lasso
+```
+
+
+```{r}
+# data <- scored_tesla_and_sentiments
+# set.seed(51)
+# #data <- data %>% filter(!is.na(teslaDiff.p))
+# #data <- data %>% mutate(teslaDir = if_else(teslaDiff >= 0, "up","down"),
+# #                        dogeDir = if_else(dogeDiff >= 0, "up","down"))
+# data$teslaDir <- as.factor(data$teslaDir)
+# data$dogeDir <- as.factor(data$dogeDir)
+# test_index <- createDataPartition(data$teslaDiff.p, p = 0.20, list = FALSE)
+# test_set <- data[test_index,]
+# train_set <- data[-test_index,]
+# write.csv(data,"/Users/uyanganaranbaatar/Documents/A DATA318/directionsdf", row.names = FALSE)
+```
+
+START HERE
+
+```{r}
+data <- read.csv("https://raw.githubusercontent.com/aksoralis/Data-Mining/main/directionsdf.csv")
+data$teslaDir <- as.factor(data$teslaDir)
+data$dogeDir <- as.factor(data$dogeDir)
+data <- data %>% filter(!is.na(teslaDiff.p))
+test_index <- createDataPartition(data$teslaDiff.p, p = 0.20, list = FALSE)
+test_set <- data[test_index,]
+train_set <- data[-test_index,]
+
+data.log <- data %>% mutate(replies_count = log(replies_count),
+                        likes_count = log(likes_count),
+                        retweets_count = log(retweets_count))
+
+test_index <- createDataPartition(data.log$teslaDiff.p, p = 0.20, list = FALSE)
+test_set_log <- data.log[test_index,]
+train_set_log <- data.log[-test_index,]
+
+```
+# Classification 
+
+
+## GLM
+```{r}
+glm.mod <- glm(teslaDir ~ tesla_score + sentiment_score + replies_count + likes_count + retweets_count, train_set, family="binomial")
+summary(glm.mod)
+glm.pred <- predict(glm.mod, test_set$teslaDir, type = "response") #when I have just test_set, it give us numerical value? when teslaDir, gives an error that object tesla_score not found
+postResample(glm.pred, test_set$teslaDir) #NA?
+roc(response = test_set$teslaDir, predictor = glm.pred, plot = TRUE) #Area=0.5373 
+```
+
+## LDA/QDA
+
+As you can see the correlation is different, meaning that we have different covariance so we will use QDA. To use QDA, we will need to use boxcox transformation so we can find our best lambda.
+
+```{r}
+hist(log(data$likes_count))
+hist(log(data$replies_count))
+hist(log(data$retweets_count))
+hist(log(data$retweets_count))
+hist(data$teslaDiff.p)
+hist(data$teslaVolDiff.p)
+hist(data$dogeDiff.p)
+hist(data$dogeVolDiff.p)
+```
+
+Boxcox transformation doesn't work?
+```{r}
+# model.part <- train_set$teslaDir ~ train_set$likes_count + train_set$replies_count + train_set$retweets_count + train_set$tesla_score + train_set$sentiment_score
+# bc <- boxcox(glm.mod)
+# (lambda <- bc$x[which.max(bc$y)])
+model.part <- teslaDir ~ likes_count + replies_count + retweets_count + tesla_score + sentiment_score
+# bc <- boxcox(model.part)
+# (lambda <- bc$x[which.max(bc$y)])
+```
+
+```{r}
+set.seed(51)
+lda.mod <- lda(model.part, data=train_set) 
+plot (lda.mod) # do we want this?
+lda.pred <- predict(lda.mod, test_set) #I need to transform test_set variables to log too?
+lda.class <- lda.pred$class
+table (lda.class, test_set$teslaDir)
+mean(lda.class == test_set$teslaDir)
+postResample(lda.pred, test_set) #this doesn't work?
+roc(response = test_set$teslaDir, predictor = lda.pred$posterior[,2], plot = TRUE) #area=0.5378
+```
+
+```{r}
+set.seed(51)
+lda.mod <- lda(model.part, data = train_set_log)
+plot (lda.mod) # do we want this?
+lda.pred <- predict(lda.mod, test_set_log) #I need to transform test_set variables to log too?
+lda.class <- lda.pred$class
+table (lda.class, test_set_log$teslaDir)
+mean(lda.class == test_set_log$teslaDir)
+postResample(lda.pred, test_set_log)
+roc(response = test_set_log$teslaDir, predictor = lda.pred$posterior[,2], plot = TRUE) #0.5452
+```
+
+```{r}
+qda.mod <- qda(model.part, train_set_log)
+qda.pred <- predict(qda.mod , test_set_log)$class #this gives a long error but still runs.
+table(qda.pred , test_set_log$teslaDir) #this one is good
+mean(qda.pred == test_set_log$teslaDir) #returns NA
+qda.pred #CHECK THIS ONE? why NAs? no sentiment score? no tesla_score?
+roc(response = test_set_log$teslaDir, predictor = qda.pred$posterior[,2], plot = TRUE) #qda.pred didn't run so it wouldn't
+```
+
+# REGRESSION
+
+Let's show this to explain the importance of each variable for regression.
+```{r}
+correlations <- train_set %>% select_if(is.numeric) %>%
+  na.omit() %>%
+  cor() %>%                # Computes correlations
+  as_tibble(rownames = "Variable")%>%           # converts from matrix to data.frame
+  dplyr::select(teslaDiff.p,Variable) %>%    # only look at correlations with sale price
+  arrange(desc(teslaDiff.p))
+correlations
+
+regfit_full = regsubsets(teslaDiff.p ~ likes_count + replies_count + retweets_count + tesla_score + sentiment_score, data = data)
+summary(regfit_full)
+```
+
+```{r}
+lm.mod <- lm(teslaDiff.p ~ tesla_score + sentiment_score + replies_count + likes_count + retweets_count, train_set)
+summary(lm.mod)
+lm.pred <- predict(lm.mod, test_set)
+postResample(lm.pred, test_set$teslaDiff.p)
+```
+        RMSE     Rsquared          MAE 
+0.0340885680 0.0001250303 0.0238283080 
+
+No significant variable
+
+## Ridge
+
+From class: in ridge regression, we need to standardize our numerical variables
+```{r}
+#define response variable
+y <- data$teslaDiff.p
+
+#define matrix of predictor variables
+x <- data.matrix(data[, c('likes_count', 'replies_count', 'retweets_count', 'tesla_score', 'sentiment_score')])
+stan.x <- scale(x, center = TRUE, scale = TRUE)
+```
+
+```{r}
+#perform k-fold cross-validation to find optimal lambda value
+cv_model_ridge <- cv.glmnet(stan.x, y, alpha = 0)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_model_ridge$lambda.min
+best_lambda
+
+#produce plot of test MSE by lambda value
+plot(cv_model_ridge) 
+ridge.mod <- glmnet(stan.x, y, alpha = 0)
+best.ridge.mod <- glmnet(stan.x, y, alpha = 0, lambda = best_lambda)
+coef(best.ridge.mod)
+plot(ridge.mod, xvar = "lambda") #not sure how to interpret this but looks cool.
+```
+
+```{r}
+#use fitted best model to make predictions
+ridge.pred <- predict(ridge.mod, s = best_lambda, newx = stan.x)
+#best.ridge.pred <- predict(best.ridge.mod, newx = x)
+
+#find SST and SSE
+sst <- sum((y - mean(y))^2)
+sse <- sum((ridge.pred - y)^2)
+#sse.best <- sum((best.ridge.pred - y)^2)
+
+#find R-Squared
+rsq <- 1 - sse/sst
+rsq # without standardization (when using x) 0.0009853385
+# with standardization (when using stan.x) 0.001031858
+postResample(ridge.pred, test_set$teslaDiff.p) #this one says 0.0477% - doesn't match?
+```
+0.0009853385 - better than lm (0.01%) - 0.09%
+
+## Lasso
+```{r}
+#perform k-fold cross-validation to find optimal lambda value
+cv_model_lasso <- cv.glmnet(x, y, alpha = 1)
+lasso.mod <- glmnet(x, y, alpha = 1)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_model_lasso$lambda.min
+best_lambda #0.0002947617
+
+#produce plot of test MSE by lambda value
+plot(lasso.mod)  #this looks really COOL - do you understand this Jake? cuz I don't
+best.lasso.mod <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+coef(best.lasso.mod)
+```
+```{r}
+lasso.pred <- predict(lasso.mod, s = best_lambda, newx = x)
+#best.ridge.pred <- predict(best.ridge.mod, newx = x)
+
+#find SST and SSE
+sst <- sum((y - mean(y))^2)
+sse <- sum((lasso.pred - y)^2)
+#sse.best <- sum((best.ridge.pred - y)^2)
+
+#find R-Squared
+rsq <- 1 - sse/sst
+rsq # 0.001069937 little bit better than the ridge
+postResample(lasso.pred, test_set$teslaDiff.p) #Hmm? 0.00040996 = 0.040996%
+```
+
